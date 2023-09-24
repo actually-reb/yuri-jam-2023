@@ -11,6 +11,8 @@ class TileSprite extends FlxSprite implements ZLayer
 	public var zlayer:Int;
 	public var properties:Array<TileProperty>; // Maybe should be EnumFlags<T>?
 
+	// Add height property? That effects the `offset` field so players can poke above their tile
+
 	public function new(game:PlayState, tx, ty)
 	{
 		super(Global.tilesize * tx, Global.tilesize * ty);

@@ -4,6 +4,7 @@ import flixel.FlxSprite;
 import flixel.tile.FlxTilemap;
 import flixel.tweens.FlxTween;
 import flixel.tweens.misc.VarTween;
+import flixel.util.FlxDirectionFlags;
 import js.html.PlaybackDirection;
 
 /*
@@ -31,6 +32,7 @@ enum PlayerState
 {
 	Idle;
 	Walking;
+	Turning;
 	Climbing;
 	Falling;
 	Supporting;
@@ -40,6 +42,8 @@ class Player extends TileSprite
 {
 	public var type:PlayerType;
 	public var state:PlayerState = Idle;
+
+	var bufferedcommand:PlayerCommand;
 
 	// var blockers:Array<Blocker> = new Array<Blocker>();
 	var walktimer:Float = 0.0;
@@ -55,11 +59,15 @@ class Player extends TileSprite
 		game.addPlayer(this);
 
 		if (type == Player1)
-			loadGraphic("assets/player1.png");
+			loadGraphic("assets/player1.png", true, 32, 32);
 		else
-			loadGraphic("assets/player2.png");
+			loadGraphic("assets/player2.png", true, 32, 32);
 
-		var x:FlxTilemap;
+		animation.add("idle", [0]);
+		animation.add("turn", [1], 15, false);
+		animation.add("support", [2]);
+		animation.finishCallback = spriteAnimFinish;
+		animation.play("idle");
 
 		setFacingFlip(RIGHT, false, false);
 		setFacingFlip(LEFT, true, false);
@@ -67,6 +75,7 @@ class Player extends TileSprite
 
 	public override function gameUpdate(game:PlayState, elapsed:Float)
 	{
+		trySupport(game);
 		if (state == Climbing)
 			climbAnimation(game, elapsed);
 		if (state == Walking)
@@ -82,6 +91,7 @@ class Player extends TileSprite
 
 	public function command(game:PlayState, cmd:PlayerCommand)
 	{
+		trySupport(game);
 		if (state != Idle)
 			return;
 
@@ -101,13 +111,30 @@ class Player extends TileSprite
 
 	function walk(game:PlayState, dir:Int)
 	{
-		facing = (dir < 0) ? LEFT : RIGHT;
+		if (state != Idle)
+			return;
+		var shouldface:FlxDirectionFlags = (dir < 0) ? LEFT : RIGHT;
+		if (facing != shouldface)
+		{
+			turn(game, dir);
+			return;
+		}
 		if (game.room.hasNoSolid(tx + dir, ty))
 		{
 			move(game, tx + dir, ty);
 			walktimer = 0.0;
 			state = Walking;
 		}
+	}
+
+	function turn(game:PlayState, dir:Int)
+	{
+		var shouldface:FlxDirectionFlags = (dir < 0) ? LEFT : RIGHT;
+		if (facing == shouldface)
+			return;
+		facing = shouldface;
+		animation.play("turn");
+		state = Turning;
 	}
 
 	function climb(game:PlayState)
@@ -138,6 +165,26 @@ class Player extends TileSprite
 		state = Falling;
 		falltimer = 0.0;
 		return true;
+	}
+
+	function trySupport(game:PlayState)
+	{
+		var tile = game.room.get(tx, ty - 1);
+		if (tile == null)
+			return false;
+
+		if (tile.hasType(Player))
+		{
+			state = Supporting;
+			animation.play("support");
+		}
+		else if (state == Supporting)
+		{
+			state = Idle;
+			animation.play("idle");
+		}
+
+		return false;
 	}
 
 	function fallAnimation(game:PlayState, elapsed:Float)
@@ -224,5 +271,14 @@ class Player extends TileSprite
 			return -1;
 		else
 			return 1;
+	}
+
+	function spriteAnimFinish(name:String)
+	{
+		if (name == "turn")
+		{
+			animation.play("idle");
+			state = Idle;
+		}
 	}
 }

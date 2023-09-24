@@ -1,5 +1,6 @@
 package;
 
+import flixel.FlxBasic;
 import flixel.group.FlxGroup.FlxTypedGroup;
 
 class Tile extends FlxTypedGroup<TileSprite>
@@ -12,6 +13,23 @@ class Tile extends FlxTypedGroup<TileSprite>
 	public inline function isOccupied()
 	{
 		return !isEmpty();
+	}
+
+	public function hasType<K>(ObjectClass:Class<K>)
+	{
+		// Plundered from forEachOfType<K>() function
+		var i:Int = 0;
+		var basic:FlxBasic = null;
+
+		while (i < length)
+		{
+			basic = members[i++];
+
+			if (basic != null)
+				if (Std.isOfType(basic, ObjectClass))
+					return true;
+		}
+		return false;
 	}
 }
 
