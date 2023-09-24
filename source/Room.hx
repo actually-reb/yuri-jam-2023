@@ -19,7 +19,7 @@ class Tile extends FlxTypedGroup<TileSprite>
 	{
 		// Plundered from forEachOfType<K>() function
 		var i:Int = 0;
-		var basic:FlxBasic = null;
+		var basic:TileSprite = null;
 
 		while (i < length)
 		{
@@ -30,6 +30,23 @@ class Tile extends FlxTypedGroup<TileSprite>
 					return true;
 		}
 		return false;
+	}
+
+	public function getFirst<K>(ObjectClass:Class<K>)
+	{
+		// Plundered from forEachOfType<K>() function
+		var i:Int = 0;
+		var basic:TileSprite = null;
+
+		while (i < length)
+		{
+			basic = members[i++];
+
+			if (basic != null)
+				if (Std.isOfType(basic, ObjectClass))
+					return basic;
+		}
+		return null;
 	}
 }
 
@@ -68,6 +85,13 @@ class Room
 		if (isOutOfBounds(x, y))
 			return true;
 		return get(x, y).isOccupied();
+	}
+
+	public function hasType<K>(ObjectClass:Class<K>, x, y)
+	{
+		if (isOutOfBounds(x, y))
+			return true;
+		return get(x, y).hasType(ObjectClass);
 	}
 
 	public inline function hasNoSolid(x, y)

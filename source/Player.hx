@@ -119,7 +119,7 @@ class Player extends TileSprite
 			turn(game, dir);
 			return;
 		}
-		if (game.room.hasNoSolid(tx + dir, ty))
+		if (game.room.hasNoSolid(tx + dir, ty) && !game.room.hasType(Player, tx + dir, ty - 1))
 		{
 			move(game, tx + dir, ty);
 			walktimer = 0.0;
@@ -173,7 +173,8 @@ class Player extends TileSprite
 		if (tile == null)
 			return false;
 
-		if (tile.hasType(Player))
+		var other:Player = cast tile.getFirst(Player);
+		if (other != null && other.state != Falling)
 		{
 			state = Supporting;
 			animation.play("support");
