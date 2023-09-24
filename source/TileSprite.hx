@@ -34,7 +34,12 @@ class TileSprite extends FlxSprite implements ZLayer
 	public function move(game:PlayState, x, y)
 	{
 		game.room.moveSprite(this, x, y);
-		this.x = Global.tilesize * this.tx;
-		this.y = Global.tilesize * this.ty;
+		resetWorldPos();
+	}
+
+	public function resetWorldPos()
+	{
+		x = Global.tilesize * tx;
+		y = Global.tilesize * ty;
 	}
 }

@@ -37,12 +37,10 @@ class PlayState extends FlxState
 		var cmd:PlayerCommand = null;
 		if (FlxG.keys.justPressed.UP)
 			cmd = Up;
-		else if (FlxG.keys.justPressed.LEFT)
+		else if (FlxG.keys.pressed.LEFT)
 			cmd = Left;
-		else if (FlxG.keys.justPressed.RIGHT)
+		else if (FlxG.keys.pressed.RIGHT)
 			cmd = Right;
-		else if (FlxG.keys.justPressed.DOWN)
-			cmd = Down;
 
 		if (cmd != null)
 			sendCommand(cmd, Player2);
@@ -50,12 +48,10 @@ class PlayState extends FlxState
 		cmd = null;
 		if (FlxG.keys.justPressed.W)
 			cmd = Up;
-		else if (FlxG.keys.justPressed.A)
+		else if (FlxG.keys.pressed.A)
 			cmd = Left;
-		else if (FlxG.keys.justPressed.D)
+		else if (FlxG.keys.pressed.D)
 			cmd = Right;
-		else if (FlxG.keys.justPressed.S)
-			cmd = Down;
 
 		if (cmd != null)
 			sendCommand(cmd, Player1);
