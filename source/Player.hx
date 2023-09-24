@@ -25,22 +25,18 @@ enum PlayerCommand
 	Right;
 }
 
-/*
-	class PlayerInput
-	{
-	public var player:PlayerType;
-	public var cmd:PlayerCommand;
+enum PlayerState
+{
+	Idle;
+	Moving;
+}
 
-	public function new(player, cmd)
-	{
-		this.player = player;
-		this.cmd = cmd;
-	}
-	}
- */
 class Player extends TileSprite
 {
 	public var type:PlayerType;
+	public var state:PlayerState = Idle;
+
+	// var blockers:Array<Blocker> = new Array<Blocker>();
 
 	public function new(game:PlayState, tx, ty, type:PlayerType)
 	{
@@ -61,7 +57,7 @@ class Player extends TileSprite
 		setFacingFlip(LEFT, true, false);
 	}
 
-	public function gameUpdate(game:PlayState, elapsed:Float)
+	public override function gameUpdate(game:PlayState, elapsed:Float)
 	{
 		fall(game);
 	}
@@ -85,7 +81,7 @@ class Player extends TileSprite
 	function walk(game:PlayState, dir:Int)
 	{
 		facing = (dir < 0) ? LEFT : RIGHT;
-		if (game.room.get(this.tx + dir, this.ty).isEmpty())
+		if (game.room.hasNoSolid(this.tx + dir, this.ty))
 		{
 			move(game, this.tx + dir, this.ty);
 		}
@@ -95,10 +91,10 @@ class Player extends TileSprite
 	{
 		var dir = getDirInt();
 
-		if (game.room.get(this.tx + dir, this.ty).isEmpty())
+		if (game.room.hasNoSolid(this.tx + dir, this.ty))
 			return;
 
-		if (game.room.get(this.tx + dir, this.ty - 1).isOccupied())
+		if (game.room.hasSolid(this.tx + dir, this.ty - 1))
 			return;
 
 		move(game, this.tx + dir, this.ty - 1);
@@ -107,8 +103,8 @@ class Player extends TileSprite
 	function fall(game:PlayState)
 	{
 		var depth = 0;
-		// Need to start handling OOB checks better real soon!
-		while (game.room.get(this.tx, this.ty + depth + 1).isEmpty())
+
+		while (game.room.hasNoSolid(this.tx, this.ty + depth + 1))
 		{
 			depth += 1;
 		}

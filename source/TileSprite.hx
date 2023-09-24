@@ -13,13 +13,15 @@ class TileSprite extends FlxSprite implements ZLayer
 
 	public function new(game:PlayState, tx, ty)
 	{
-		super(32 * tx, 32 * ty);
+		super(Global.tilesize * tx, Global.tilesize * ty);
 		this.zlayer = 0;
 		this.tx = tx;
 		this.ty = ty;
 
 		game.addTileSprite(this);
 	}
+
+	public function gameUpdate(game:PlayState, elapsed:Float) {}
 
 	public function addProperties(properties:Array<TileProperty>)
 	{
@@ -32,7 +34,7 @@ class TileSprite extends FlxSprite implements ZLayer
 	public function move(game:PlayState, x, y)
 	{
 		game.room.moveSprite(this, x, y);
-		this.x = 32 * this.tx;
-		this.y = 32 * this.ty;
+		this.x = Global.tilesize * this.tx;
+		this.y = Global.tilesize * this.ty;
 	}
 }
