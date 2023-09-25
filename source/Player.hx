@@ -100,6 +100,7 @@ class Player extends TileSprite
 			case Up:
 				climb(game);
 			case Down:
+				pickup(game);
 			case Left:
 				walk(game, -1);
 			case Right:
@@ -152,6 +153,8 @@ class Player extends TileSprite
 		state = Climbing;
 	}
 
+	function pickup(game:PlayState) {}
+
 	function tryFall(game:PlayState)
 	{
 		if (state == Falling)
@@ -178,6 +181,7 @@ class Player extends TileSprite
 		{
 			state = Supporting;
 			animation.play("support");
+			resetWorldPos();
 		}
 		else if (state == Supporting)
 		{

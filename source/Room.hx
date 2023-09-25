@@ -3,11 +3,32 @@ package;
 import flixel.FlxBasic;
 import flixel.group.FlxGroup.FlxTypedGroup;
 
-class Tile extends FlxTypedGroup<TileSprite>
+class Tile
 {
+	var sprites:Array<TileSprite> = new Array<TileSprite>();
+
+	public function new() {}
+
+	public function add(spr:TileSprite)
+	{
+		if (sprites.indexOf(spr) >= 0)
+			return;
+		sprites.push(spr);
+	}
+
+	public function remove(spr:TileSprite)
+	{
+		return sprites.remove(spr);
+	}
+
+	public function length()
+	{
+		return sprites.length;
+	}
+
 	public function isEmpty()
 	{
-		return this.countLiving() == -1;
+		return sprites.length == 0;
 	}
 
 	public inline function isOccupied()
@@ -15,36 +36,64 @@ class Tile extends FlxTypedGroup<TileSprite>
 		return !isEmpty();
 	}
 
+	public function any(func:TileSprite->Bool)
+	{
+		for (s in sprites)
+		{
+			if (func(s))
+				return true;
+		}
+		return false;
+	}
+
+	public function all(func:TileSprite->Bool)
+	{
+		for (s in sprites)
+		{
+			if (!func(s))
+				return false;
+		}
+		return true;
+	}
+
+	public function first(func:TileSprite->Bool)
+	{
+		for (s in sprites)
+		{
+			if (func(s))
+				return s;
+		}
+		return null;
+	}
+
+	public function filter(func:TileSprite->Bool)
+	{
+		var list:Array<TileSprite> = new Array<TileSprite>();
+
+		for (s in sprites)
+		{
+			if (func(s))
+				list.push(s);
+		}
+		return list;
+	}
+
 	public function hasType<K>(ObjectClass:Class<K>)
 	{
-		// Plundered from forEachOfType<K>() function
-		var i:Int = 0;
-		var basic:TileSprite = null;
-
-		while (i < length)
+		for (s in sprites)
 		{
-			basic = members[i++];
-
-			if (basic != null)
-				if (Std.isOfType(basic, ObjectClass))
-					return true;
+			if (Std.isOfType(s, ObjectClass))
+				return true;
 		}
 		return false;
 	}
 
 	public function getFirst<K>(ObjectClass:Class<K>)
 	{
-		// Plundered from forEachOfType<K>() function
-		var i:Int = 0;
-		var basic:TileSprite = null;
-
-		while (i < length)
+		for (s in sprites)
 		{
-			basic = members[i++];
-
-			if (basic != null)
-				if (Std.isOfType(basic, ObjectClass))
-					return basic;
+			if (Std.isOfType(s, ObjectClass))
+				return s;
 		}
 		return null;
 	}
@@ -106,8 +155,9 @@ class Room
 
 	public function removeSprite(spr:TileSprite)
 	{
-		var tile = get(spr.tx, spr.ty);
-		return tile != null && tile.remove(spr) != null;
+		if (isOutOfBounds(spr.tx, spr.ty))
+			return false;
+		return get(spr.tx, spr.ty).remove(spr);
 	}
 
 	public function moveSprite(spr:TileSprite, x, y)

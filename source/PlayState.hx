@@ -80,6 +80,8 @@ class PlayState extends FlxState
 				{
 					case "#":
 						new Wall(this, x, y);
+					case "$":
+						new Crate(this, x, y);
 					case "1":
 						new Player(this, x, y, Player1);
 					case "2":
