@@ -2,5 +2,5 @@ package;
 
 interface ZLayer
 {
-	public var zlayer:Int;
+	public function zlayer():Int;
 }

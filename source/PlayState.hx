@@ -18,8 +18,10 @@ typedef LevelData =
 class PlayState extends FlxState
 {
 	public var room:Room;
+	public var elapsed:Float;
 
 	var players:Array<Player> = new Array<Player>();
+	var tileUpdates:Array<TileSprite> = new Array<TileSprite>();
 
 	override public function create()
 	{
@@ -33,6 +35,7 @@ class PlayState extends FlxState
 	override public function update(elapsed:Float)
 	{
 		super.update(elapsed);
+		this.elapsed = elapsed;
 
 		var cmd:PlayerCommand = null;
 		if (FlxG.keys.justPressed.UP)
@@ -60,8 +63,8 @@ class PlayState extends FlxState
 		if (cmd != null)
 			sendCommand(cmd, Player1);
 
-		for (p in this.players)
-			p.gameUpdate(this, elapsed);
+		for (o in tileUpdates)
+			o.gameUpdate();
 	}
 
 	public function loadLevel(level:LevelData)
@@ -96,7 +99,7 @@ class PlayState extends FlxState
 	{
 		for (p in this.players)
 			if (p.type == type)
-				p.command(this, cmd);
+				p.command(cmd);
 	}
 
 	static function zsort(order:Int, a:FlxBasic, b:FlxBasic)
@@ -105,9 +108,19 @@ class PlayState extends FlxState
 		var aa:ZLayer = cast a;
 		var bb:ZLayer = cast b;
 
-		if (aa.zlayer < bb.zlayer)
+		if (aa.zlayer() < bb.zlayer())
 			return -1;
-		else if (aa.zlayer > bb.zlayer)
+		else if (aa.zlayer() > bb.zlayer())
+			return 1;
+		else
+			return 0;
+	}
+
+	static function prioritysort(a:TileSprite, b:TileSprite)
+	{
+		if (a.updatePriority() < b.updatePriority())
+			return -1;
+		else if (a.updatePriority() > b.updatePriority())
 			return 1;
 		else
 			return 0;
@@ -116,13 +129,17 @@ class PlayState extends FlxState
 	public function addTileSprite(spr:TileSprite)
 	{
 		add(spr);
-		this.room.addSprite(spr);
-		this.sort(zsort);
+		room.addSprite(spr);
+		sort(zsort);
+		if (spr.updatePriority() > 0)
+		{
+			tileUpdates.push(spr);
+			tileUpdates.sort(prioritysort);
+		}
 	}
 
 	public function addPlayer(player:Player)
 	{
-		addTileSprite(player);
-		this.players.push(player);
+		players.push(player);
 	}
 }

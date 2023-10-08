@@ -88,7 +88,7 @@ class Tile
 		return false;
 	}
 
-	public function getFirst<K>(ObjectClass:Class<K>)
+	public function firstType<K>(ObjectClass:Class<K>)
 	{
 		for (s in sprites)
 		{
@@ -129,11 +129,18 @@ class Room
 		return data[x + y * this.width];
 	}
 
+	public function first(func:TileSprite->Bool, x, y)
+	{
+		if (isOutOfBounds(x, y))
+			return null;
+		return get(x, y).first(func);
+	}
+
 	public function hasSolid(x, y)
 	{
 		if (isOutOfBounds(x, y))
 			return true;
-		return get(x, y).isOccupied();
+		return get(x, y).any((o) -> o.isSolid());
 	}
 
 	public function hasType<K>(ObjectClass:Class<K>, x, y)

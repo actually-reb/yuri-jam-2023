@@ -2,38 +2,28 @@ package;
 
 import flixel.FlxSprite;
 
-enum TileProperty {}
-
 class TileSprite extends FlxSprite implements ZLayer
 {
+	var game:PlayState;
+
 	public var tx:Int;
 	public var ty:Int;
-	public var zlayer:Int;
-	public var properties:Array<TileProperty>; // Maybe should be EnumFlags<T>?
 
 	// Add height property? That effects the `offset` field so players can poke above their tile
 
 	public function new(game:PlayState, tx, ty)
 	{
 		super(Global.tilesize * tx, Global.tilesize * ty);
-		this.zlayer = 0;
 		this.tx = tx;
 		this.ty = ty;
+		this.game = game;
 
 		game.addTileSprite(this);
 	}
 
-	public function gameUpdate(game:PlayState, elapsed:Float) {}
+	public function gameUpdate() {}
 
-	public function addProperties(properties:Array<TileProperty>)
-	{
-		for (p in properties)
-		{
-			properties.push(p);
-		}
-	}
-
-	public function move(game:PlayState, x, y)
+	public function move(x, y)
 	{
 		game.room.moveSprite(this, x, y);
 		resetWorldPos();
@@ -44,4 +34,28 @@ class TileSprite extends FlxSprite implements ZLayer
 		x = Global.tilesize * tx;
 		y = Global.tilesize * ty;
 	}
+
+	public function zlayer()
+		return 0;
+
+	public function isSolid()
+		return true;
+
+	public function updatePriority()
+		return 0;
+
+	public function isFalling()
+		return false;
+
+	public function isCarryable()
+		return false;
+
+	public function isPushable()
+		return false;
+
+	public function isHeavy()
+		return false;
+
+	public function isLiftable()
+		return false;
 }

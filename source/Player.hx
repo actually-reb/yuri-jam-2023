@@ -5,6 +5,7 @@ import flixel.tile.FlxTilemap;
 import flixel.tweens.FlxTween;
 import flixel.tweens.misc.VarTween;
 import flixel.util.FlxDirectionFlags;
+import js.html.ElementCreationOptions;
 import js.html.PlaybackDirection;
 
 /*
@@ -35,7 +36,8 @@ enum PlayerState
 	Turning;
 	Climbing;
 	Falling;
-	Supporting;
+	Dropping;
+	Lifting;
 }
 
 class Player extends TileSprite
@@ -49,12 +51,19 @@ class Player extends TileSprite
 	var walktimer:Float = 0.0;
 	var falltimer:Float = 0.0;
 	var climbtimer:Float = 0.0;
+	var turntimer:Float = 0.0; // Physical turning, not a game turn
+	var droptimer:Float = 0.0;
+	var lifttimer:Float = 0.0;
+
+	var supporting:Bool = false;
+	var putdown:TileSprite = null;
+	var pickup:TileSprite = null;
+	var pushingthis:TileSprite = null;
 
 	public function new(game:PlayState, tx, ty, type:PlayerType)
 	{
 		super(game, tx, ty);
 		this.type = type;
-		this.zlayer = 500;
 		this.facing = RIGHT;
 		game.addPlayer(this);
 
@@ -64,82 +73,123 @@ class Player extends TileSprite
 			loadGraphic("assets/player2.png", true, 32, 32);
 
 		animation.add("idle", [0]);
-		animation.add("turn", [1], 15, false);
+		animation.add("turn", [1, 0], 15, false);
 		animation.add("support", [2]);
-		animation.finishCallback = spriteAnimFinish;
 		animation.play("idle");
 
 		setFacingFlip(RIGHT, false, false);
 		setFacingFlip(LEFT, true, false);
 	}
 
-	public override function gameUpdate(game:PlayState, elapsed:Float)
+	public override function gameUpdate()
 	{
-		trySupport(game);
+		// Add real animation system when this gets too complex
+		trySupport();
 		if (state == Climbing)
-			climbAnimation(game, elapsed);
+			climbAnimation();
 		if (state == Walking)
-			walkAnimation(game, elapsed);
+			walkAnimation();
+		if (state == Dropping)
+			dropAnimation();
+		if (state == Lifting)
+			liftAnimation();
 
-		tryFall(game);
+		tryFall();
 		if (state == Falling)
 		{
-			fallAnimation(game, elapsed);
+			fallAnimation();
 			return;
 		}
+		turnAnimation();
+
+		spriteAnimation();
 	}
 
-	public function command(game:PlayState, cmd:PlayerCommand)
+	public function command(cmd:PlayerCommand)
 	{
-		trySupport(game);
-		if (state != Idle)
-			return;
+		trySupport();
 
 		switch cmd
 		{
 			case Up:
-				climb(game);
+				climb();
 			case Down:
-				pickup(game);
+				downaction();
 			case Left:
-				walk(game, -1);
+				walk(-1);
 			case Right:
-				walk(game, 1);
+				walk(1);
 		}
 
-		tryFall(game);
+		tryFall();
 	}
 
-	function walk(game:PlayState, dir:Int)
+	function walk(dir:Int)
 	{
 		if (state != Idle)
 			return;
 		var shouldface:FlxDirectionFlags = (dir < 0) ? LEFT : RIGHT;
 		if (facing != shouldface)
 		{
-			turn(game, dir);
+			turn(dir);
 			return;
 		}
+
+		var canwalk = false;
+		var held = getHeld();
+		var pushed = game.room.first((o) -> o.isPushable(), tx + dir, ty);
+
 		if (game.room.hasNoSolid(tx + dir, ty) && !game.room.hasType(Player, tx + dir, ty - 1))
 		{
-			move(game, tx + dir, ty);
+			if (held != null)
+			{
+				if (game.room.hasSolid(tx + dir, ty - 1))
+					canwalk = false;
+				else
+					canwalk = true;
+			}
+			else
+			{
+				canwalk = true;
+			}
+		}
+
+		if (pushed != null && held == null)
+		{
+			if (game.room.hasNoSolid(tx + dir + dir, ty))
+				canwalk = true;
+		}
+
+		if (canwalk)
+		{
+			move(tx + dir, ty);
 			walktimer = 0.0;
 			state = Walking;
+
+			if (held != null)
+				held.move(tx, ty - 1);
+
+			if (pushed != null)
+			{
+				pushed.move(tx + dir, ty);
+				pushingthis = pushed;
+			}
 		}
 	}
 
-	function turn(game:PlayState, dir:Int)
+	function turn(dir:Int)
 	{
 		var shouldface:FlxDirectionFlags = (dir < 0) ? LEFT : RIGHT;
 		if (facing == shouldface)
 			return;
 		facing = shouldface;
-		animation.play("turn");
 		state = Turning;
 	}
 
-	function climb(game:PlayState)
+	function climb()
 	{
+		if (state != Idle)
+			return;
 		var dir = getDirInt();
 
 		if (game.room.hasNoSolid(tx + dir, ty))
@@ -148,14 +198,54 @@ class Player extends TileSprite
 		if (game.room.hasSolid(tx + dir, ty - 1))
 			return;
 
-		move(game, tx + dir, ty - 1);
+		move(tx + dir, ty - 1);
 		climbtimer = 0.0;
 		state = Climbing;
 	}
 
-	function pickup(game:PlayState) {}
+	function downaction()
+	{
+		var dir = getDirInt();
+		var holding = getHeld();
 
-	function tryFall(game:PlayState)
+		if (holding != null)
+		{
+			// Drop action
+			if (game.room.hasSolid(tx + dir, ty - 1))
+				return;
+
+			if (game.room.hasSolid(tx + dir, ty))
+			{
+				holding.move(tx + dir, ty - 1);
+			}
+			else
+			{
+				holding.move(tx + dir, ty);
+			}
+
+			putdown = holding;
+			state = Dropping;
+		}
+		else
+		{
+			// Pickup action
+			var picked = game.room.first((o) -> o.isLiftable(), tx + dir, ty);
+			if (picked == null)
+				return;
+
+			if (game.room.hasSolid(tx + dir, ty - 1) || game.room.hasSolid(tx, ty - 1))
+				return;
+
+			picked.move(tx, ty - 1);
+			pickup = picked;
+			state = Lifting;
+		}
+	}
+
+	function getHeld()
+		return game.room.first((o) -> o.isCarryable() && !o.isFalling(), tx, ty - 1);
+
+	function tryFall()
 	{
 		if (state == Falling)
 			return false;
@@ -164,40 +254,38 @@ class Player extends TileSprite
 		if (game.room.hasSolid(tx, ty + 1))
 			return false;
 
-		move(game, tx, ty + 1);
+		move(tx, ty + 1);
 		state = Falling;
 		falltimer = 0.0;
 		return true;
 	}
 
-	function trySupport(game:PlayState)
+	function trySupport()
 	{
 		var tile = game.room.get(tx, ty - 1);
 		if (tile == null)
 			return false;
 
-		var other:Player = cast tile.getFirst(Player);
-		if (other != null && other.state != Falling)
+		var other = getHeld();
+		if (other != null)
 		{
-			state = Supporting;
-			animation.play("support");
-			resetWorldPos();
+			supporting = true;
+			// resetWorldPos();
 		}
-		else if (state == Supporting)
+		else if (supporting == true)
 		{
-			state = Idle;
-			animation.play("idle");
+			supporting = false;
 		}
 
 		return false;
 	}
 
-	function fallAnimation(game:PlayState, elapsed:Float)
+	function fallAnimation()
 	{
-		if (state != Falling)
+		if (!isFalling())
 			return;
 
-		falltimer += elapsed * 4;
+		falltimer += game.elapsed * 4;
 		resetWorldPos();
 
 		if (falltimer < 1.0)
@@ -208,9 +296,9 @@ class Player extends TileSprite
 
 		falltimer = 0.0;
 		state = Idle;
-		if (tryFall(game))
+		if (tryFall())
 		{
-			return fallAnimation(game, elapsed);
+			return fallAnimation();
 		}
 		else
 		{
@@ -218,14 +306,21 @@ class Player extends TileSprite
 		}
 	}
 
-	function walkAnimation(game:PlayState, elapsed:Float)
+	function walkAnimation()
 	{
+		// Let this kinda movement code happen while supporting too
+		// Or other forseeable things
 		if (state != Walking)
 			return;
 
-		walktimer += elapsed * 6;
+		walktimer += game.elapsed * 6;
 		resetWorldPos();
 		var dir = getDirInt();
+		var held = getHeld();
+		if (held != null)
+			held.resetWorldPos();
+		if (pushingthis != null)
+			pushingthis.resetWorldPos();
 
 		if (walktimer < 1.0)
 		{
@@ -234,19 +329,29 @@ class Player extends TileSprite
 			var dist = sq / (2.0 * (sq - walktimer) + 1.0);
 
 			x = (x + (Global.tilesize) * (-dir)) + Global.tilesize * dist * dir;
+
+			if (held != null)
+			{
+				held.x = x;
+			}
+			if (pushingthis != null)
+			{
+				pushingthis.x = (pushingthis.x + (Global.tilesize) * (-dir)) + Global.tilesize * dist * dir;
+			}
 			return;
 		}
 
 		walktimer = 0.0;
+		pushingthis = null;
 		state = Idle;
 	}
 
-	function climbAnimation(game:PlayState, elapsed:Float)
+	function climbAnimation()
 	{
 		if (state != Climbing)
 			return;
 
-		climbtimer += elapsed * 4;
+		climbtimer += game.elapsed * 4;
 		resetWorldPos();
 		var dir = getDirInt();
 
@@ -270,6 +375,94 @@ class Player extends TileSprite
 		state = Idle;
 	}
 
+	function turnAnimation()
+	{
+		if (state != Turning)
+			return;
+
+		turntimer += game.elapsed * 15;
+
+		if (turntimer < 1.0)
+			return;
+
+		turntimer = 0.0;
+		state = Idle;
+	}
+
+	function dropAnimation()
+	{
+		if (state != Dropping)
+			return;
+
+		droptimer += game.elapsed * 4;
+		resetWorldPos();
+		putdown.resetWorldPos();
+		var dir = getDirInt();
+
+		if (droptimer < 0.5)
+		{
+			if (putdown.ty == ty)
+				putdown.y -= Global.tilesize;
+			putdown.x += Global.tilesize * (-dir);
+			var t = (droptimer) * 2;
+			putdown.x += Global.tilesize * -t * (t - 2) * dir;
+			return;
+		}
+		else if (droptimer < 1.0)
+		{
+			if (putdown.ty == ty)
+			{
+				putdown.y -= Global.tilesize;
+				var t = (droptimer - 0.5) * 2;
+				putdown.y += Global.tilesize * t * t;
+				return;
+			}
+		}
+
+		droptimer = 0.0;
+		state = Idle;
+	}
+
+	function liftAnimation()
+	{
+		if (state != Lifting)
+			return;
+
+		lifttimer += game.elapsed * 4;
+		resetWorldPos();
+		pickup.resetWorldPos();
+		var dir = getDirInt();
+
+		if (lifttimer < 0.5)
+		{
+			pickup.y += Global.tilesize;
+			pickup.x += Global.tilesize * (dir);
+			var t = (lifttimer) * 2;
+			pickup.y -= Global.tilesize * t * t;
+			return;
+		}
+		else if (lifttimer < 1.0)
+		{
+			pickup.x += Global.tilesize * (dir);
+			var t = (lifttimer - 0.5) * 2;
+			pickup.x -= Global.tilesize * -t * (t - 2) * dir;
+			return;
+		}
+
+		lifttimer = 0.0;
+		state = Idle;
+	}
+
+	function spriteAnimation()
+	{
+		if (state == Turning)
+			animation.play("turn");
+		else if (supporting)
+			animation.play("support");
+		else
+			animation.play("idle");
+	}
+
 	function getDirInt()
 	{
 		if (facing == LEFT)
@@ -278,12 +471,18 @@ class Player extends TileSprite
 			return 1;
 	}
 
-	function spriteAnimFinish(name:String)
-	{
-		if (name == "turn")
-		{
-			animation.play("idle");
-			state = Idle;
-		}
-	}
+	public override function zlayer()
+		return 500;
+
+	public override function updatePriority()
+		return 1;
+
+	public override function isFalling()
+		return state == Falling;
+
+	public override function isHeavy()
+		return true;
+
+	public override function isCarryable()
+		return true;
 }
